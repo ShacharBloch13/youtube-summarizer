@@ -5,7 +5,8 @@ import os
 from scenedetect import VideoManager, SceneManager
 from scenedetect.detectors import ContentDetector
 import cv2
-from PIL import Image
+from PIL import Image, ImageDraw, ImageFont
+
 
 
 api_key = 'AIzaSyCOevHFAmoNY3WONd-wzIoMPfGqA3ix4t0' # it is better practice to save locally under variables, but for the checkers to see that it is working, I will leave it here
@@ -64,6 +65,7 @@ def search_and_download(subject):
     return None
 
 def detect_and_save_scenes(video_path):
+    
     if not os.path.isfile(video_path):
         print("Video file does not exist at the specified path.")
         return
@@ -92,12 +94,36 @@ def detect_and_save_scenes(video_path):
             frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
             # Convert NumPy array (frame) to PIL Image
             frame_image = Image.fromarray(frame)
+            add_watermark(frame_image, "Shachar Bloch")#, (frame_image.width - 220, frame_image.height - 40))
             frame_image.save(f"scene_{i}.jpg")
         print(f"Saved {i} scene.")
 
     cap.release()
     video_manager.release()
 
+
+def add_watermark(image, text):
+    # Create a drawing context
+    draw = ImageDraw.Draw(image)
+    
+    # Specify the font: you can use a specific TrueType/OpenType font or the default PIL font
+    try:
+        # Attempt to use a specific TrueType font file if available
+        font = ImageFont.truetype("arial.ttf", 24)  # Adjust font path and size as needed
+    except IOError:
+        # Fallback to default PIL font if specific font file is not found
+        font = ImageFont.load_default()
+    
+    # Get the size of the text to be drawn
+    #text_width, text_height = draw.text((10,25),text, font=font)
+    
+    # Calculate the position for the text to be in the bottom-right corner, with a small margin
+    x = image.width -  10  # Adjust margin as needed
+    y = image.height - 10  # Adjust margin as needed
+    
+    # Draw the text onto the image with the specified font, position, and color (white in this example)
+    draw.text((image.width -175, image.height - 25), text, fill=(255, 255, 255), font=font)
+    
 
 def main():
     subject = input("Please enter a subject for the video: ")
