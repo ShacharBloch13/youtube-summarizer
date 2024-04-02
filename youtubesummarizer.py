@@ -6,6 +6,7 @@ from scenedetect import VideoManager, SceneManager
 from scenedetect.detectors import ContentDetector
 import cv2
 from PIL import Image, ImageDraw, ImageFont
+import easyocr
 
 
 
@@ -64,6 +65,19 @@ def search_and_download(subject):
     print("No suitable video found.")
     return None
 
+def image_text_decipher(image_path):
+    reader = easyocr.Reader(['en'])
+    result = reader.readtext(image_path)
+    detected_text = "\n".join([text[1] for text in result])
+
+    print(detected_text)  # Print detected text to console
+
+    # Save detected text to a file
+    with open(f"{image_path}.txt", 'w') as text_file:
+        text_file.write(detected_text)
+    
+    return detected_text  # Return the detected text for any further use
+
 def detect_and_save_scenes(video_path):
     
     if not os.path.isfile(video_path):
@@ -95,9 +109,15 @@ def detect_and_save_scenes(video_path):
             # Convert NumPy array (frame) to PIL Image
             frame_image = Image.fromarray(frame)
             add_watermark(frame_image, "Shachar Bloch")#, (frame_image.width - 220, frame_image.height - 40))
-            frame_image.save(f"scene_{i}.jpg")
-        print(f"Saved {i} scene.")
-
+            frame_image_path = f"scene_{i}.jpg"
+            frame_image.save(frame_image_path)
+            print(f"Saved {i} scene.")
+            
+            # decihers the text, opens agian the saved image and adds the watermark
+            image_text_decipher(frame_image_path)
+            frame_image = Image.open(frame_image_path)
+            add_watermark(frame_image, "Shachar Bloch")
+            frame_image.save(frame_image_path)
     cap.release()
     video_manager.release()
 
@@ -121,8 +141,8 @@ def add_watermark(image, text):
     x = image.width -  10  # Adjust margin as needed
     y = image.height - 10  # Adjust margin as needed
     
-    # Draw the text onto the image with the specified font, position, and color (white in this example)
-    draw.text((image.width -175, image.height - 25), text, fill=(255, 255, 255), font=font)
+    # Draw the text onto the image with the specified font, position, and color (I like Spotify's color scheme)
+    draw.text((image.width -175, image.height - 25), text, fill=(30, 215, 96), font=font)
     
 
 def main():
