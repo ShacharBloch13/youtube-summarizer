@@ -5,15 +5,16 @@ import os
 from scenedetect import VideoManager, SceneManager
 from scenedetect.detectors import ContentDetector
 import cv2
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw, ImageFont, ImageSequence
 import easyocr
+import webbrowser
 
 
 
 api_key = 'AIzaSyCOevHFAmoNY3WONd-wzIoMPfGqA3ix4t0' # it is better practice to save locally under variables, but for the checkers to see that it is working, I will leave it here
 youtube = build('youtube', 'v3', developerKey=api_key)
 watermark_text = "Shachar Bloch"
-threshold_level = 30.0
+threshold_level = 70.0
 OUTPUT_FILE = "collected_text.txt"
 
 def search_and_download(subject):
@@ -102,7 +103,7 @@ def detect_and_save_scenes(video_path):
     if not cap.isOpened():
         print("Error opening video file.")
         return
-
+    scene_image_paths = []
     for i, (start, end) in enumerate(scene_list, start=1):
         # Seek to the start of the scene
         start_frame = start.get_frames()
@@ -124,6 +125,8 @@ def detect_and_save_scenes(video_path):
             frame_image = Image.open(frame_image_path)
             add_watermark(frame_image, watermark_text)
             frame_image.save(frame_image_path)
+            scene_image_paths.append(frame_image_path)
+    gif_maker(scene_image_paths)
     cap.release()
     video_manager.release()
 
@@ -149,7 +152,20 @@ def add_watermark(image, text):
     
     # Draw the text onto the image with the specified font, position, and color (I like Spotify's color scheme)
     draw.text((image.width -175, image.height - 25), text, fill=(30, 215, 96), font=font)
-    
+
+
+def gif_maker(scene_list, output_filename="GIF.gif", duration=100): #
+    images = [Image.open(scene) for scene in scene_list]
+    # Ensure the GIF is no longer than 10 seconds
+    if len(images) > 0:
+        gif_duration = min(duration, 10000 // len(images))
+    else:
+        gif_duration = duration
+    images[0].save(output_filename, save_all=True, append_images=images[1:], loop=0, duration=gif_duration)
+    print(f"Saved GIF to {output_filename}")
+    file_url = 'file://' + os.path.abspath(output_filename)
+    webbrowser.open(file_url)
+
 
 def main():
     subject = input("Please enter a subject for the video: ")
