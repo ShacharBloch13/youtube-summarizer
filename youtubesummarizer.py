@@ -12,6 +12,9 @@ import easyocr
 
 api_key = 'AIzaSyCOevHFAmoNY3WONd-wzIoMPfGqA3ix4t0' # it is better practice to save locally under variables, but for the checkers to see that it is working, I will leave it here
 youtube = build('youtube', 'v3', developerKey=api_key)
+watermark_text = "Shachar Bloch"
+threshold_level = 30.0
+OUTPUT_FILE = "collected_text.txt"
 
 def search_and_download(subject):
     search_request = youtube.search().list(
@@ -68,13 +71,15 @@ def search_and_download(subject):
 def image_text_decipher(image_path):
     reader = easyocr.Reader(['en'])
     result = reader.readtext(image_path)
-    detected_text = "\n".join([text[1] for text in result])
+    excluded_string = watermark_text
+    detected_text = "\n".join([text[1] for text in result if excluded_string not in text[1]])
+
 
     print(detected_text)  # Print detected text to console
 
     # Save detected text to a file
-    with open(f"{image_path}.txt", 'w') as text_file:
-        text_file.write(detected_text)
+    with open(OUTPUT_FILE, 'a') as text_file:
+        text_file.write(detected_text + "\n")
     
     return detected_text  # Return the detected text for any further use
 
@@ -86,7 +91,7 @@ def detect_and_save_scenes(video_path):
 
     # Set up PySceneDetect
     scene_manager = SceneManager()
-    scene_manager.add_detector(ContentDetector(threshold=70))
+    scene_manager.add_detector(ContentDetector(threshold=threshold_level))
     video_manager = VideoManager([video_path])
     video_manager.start()
     scene_manager.detect_scenes(frame_source=video_manager)
@@ -108,7 +113,8 @@ def detect_and_save_scenes(video_path):
             frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
             # Convert NumPy array (frame) to PIL Image
             frame_image = Image.fromarray(frame)
-            add_watermark(frame_image, "Shachar Bloch")#, (frame_image.width - 220, frame_image.height - 40))
+            
+            add_watermark(frame_image, watermark_text)#, (frame_image.width - 220, frame_image.height - 40))
             frame_image_path = f"scene_{i}.jpg"
             frame_image.save(frame_image_path)
             print(f"Saved {i} scene.")
@@ -116,7 +122,7 @@ def detect_and_save_scenes(video_path):
             # decihers the text, opens agian the saved image and adds the watermark
             image_text_decipher(frame_image_path)
             frame_image = Image.open(frame_image_path)
-            add_watermark(frame_image, "Shachar Bloch")
+            add_watermark(frame_image, watermark_text)
             frame_image.save(frame_image_path)
     cap.release()
     video_manager.release()
