@@ -166,12 +166,27 @@ def gif_maker(scene_list, output_filename="GIF.gif", duration=100): #
     file_url = 'file://' + os.path.abspath(output_filename)
     webbrowser.open(file_url)
 
+def print_concatenated_text_from_file(file_path):
+    # Ensure the file exists
+    if not os.path.exists(file_path):
+        print("Text file does not exist.")
+        return
+    
+    # Read and concatenate text
+    with open(file_path, 'r') as file:
+        concatenated_text = " ".join([line.strip() for line in file.readlines()])
+    
+    print("Concatenated Text:", concatenated_text)
+    return concatenated_text
+
+
 
 def main():
     subject = input("Please enter a subject for the video: ")
     video_path = search_and_download(subject)
     if video_path:
         detect_and_save_scenes(video_path)
+    print_concatenated_text_from_file("collected_text.txt")
 
 if __name__ == "__main__":
     main()
