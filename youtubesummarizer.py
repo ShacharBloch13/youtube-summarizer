@@ -8,13 +8,14 @@ import cv2
 from PIL import Image, ImageDraw, ImageFont, ImageSequence
 import easyocr
 import webbrowser
-
+import openai
 
 
 api_key = 'AIzaSyCOevHFAmoNY3WONd-wzIoMPfGqA3ix4t0' # it is better practice to save locally under variables, but for the checkers to see that it is working, I will leave it here
+youtube_summarizer_openai_key = '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' # it is better practice to save locally under variables, but for the checkers to see that it is working, I will leave it here
 youtube = build('youtube', 'v3', developerKey=api_key)
 watermark_text = "Shachar Bloch"
-threshold_level = 70.0
+threshold_level = 60.0
 OUTPUT_FILE = "collected_text.txt"
 
 def search_and_download(subject):
@@ -29,6 +30,7 @@ def search_and_download(subject):
 
     for item in search_response['items']:
         video_id = item['id']['videoId']
+        youtube_link = f"https://www.youtube.com/watch?v={video_id}"
         yt = YouTube(f'https://www.youtube.com/watch?v={video_id}')
         filename = yt.title.replace(" ", "_") + ".mp4"
         download_path = os.path.join(os.getcwd(), filename)
@@ -44,10 +46,10 @@ def search_and_download(subject):
             if not os.path.exists(download_path):
                 yt.streams.get_highest_resolution().download(filename=filename)
                 print("Download completed.")
-                return download_path
+                return download_path, video_id
             else:
                 print("Video already exists.")
-                return download_path
+                return download_path, video_id
             
         
 
@@ -62,12 +64,16 @@ def search_and_download(subject):
         if not os.path.exists(download_path):
                 yt.streams.get_highest_resolution().download(filename=filename)
                 print("Download completed.")
-                return download_path
+                return download_path, video_id
         else:
             print("Video already exists.")
-            return download_path
+            return download_path, video_id
     print("No suitable video found.")
     return None
+
+def get_youtube_link(video_id):
+    return f"https://www.youtube.com/watch?v={video_id}"
+
 
 def image_text_decipher(image_path):
     reader = easyocr.Reader(['en'])
@@ -167,26 +173,55 @@ def gif_maker(scene_list, output_filename="GIF.gif", duration=100): #
     webbrowser.open(file_url)
 
 def print_concatenated_text_from_file(file_path):
-    # Ensure the file exists
     if not os.path.exists(file_path):
         print("Text file does not exist.")
-        return
+        return ""
     
-    # Read and concatenate text
     with open(file_path, 'r') as file:
         concatenated_text = " ".join([line.strip() for line in file.readlines()])
     
     print("Concatenated Text:", concatenated_text)
     return concatenated_text
 
-
+def create_summary(youtube_link, concatenated_text):
+    prompt = f"Please summarize this content based on the following details and the linked video: {concatenated_text} Link: {youtube_link}"
+    
+    try:
+        response = openai.Completion.create(
+            engine="gpt-3.5-turbo-instruct",  
+            prompt=prompt,
+            temperature=0.5,
+            max_tokens=1024,  # Adjust as needed
+            top_p=1.0,
+            frequency_penalty=0.0,
+            presence_penalty=0.0
+        )
+        
+        summary_text = response.choices[0].text.strip()
+        
+        # Saving the summary to a file
+        summary_file = "GPT_summary.txt"
+        with open(summary_file, "w") as file:
+            file.write(summary_text)
+        
+        print("Summary created and saved to GPT_summary.txt.")
+        
+        # Open the summary file automatically in the default web browser
+        file_url = 'file://' + os.path.abspath(summary_file)
+        webbrowser.open(file_url)
+    
+    except Exception as e:
+        print(f"An error occurred while creating the summary: {e}")
 
 def main():
     subject = input("Please enter a subject for the video: ")
-    video_path = search_and_download(subject)
+    video_path, video_id = search_and_download(subject)  # Ensure this returns video path and ID
     if video_path:
         detect_and_save_scenes(video_path)
-    print_concatenated_text_from_file("collected_text.txt")
+    
+    concatenated_text = print_concatenated_text_from_file(OUTPUT_FILE)
+    youtube_link = get_youtube_link(video_id)  # Ensure video_id is used here
+    create_summary(youtube_link, concatenated_text)
 
 if __name__ == "__main__":
     main()
