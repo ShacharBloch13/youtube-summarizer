@@ -8,17 +8,19 @@ import cv2
 from PIL import Image, ImageDraw, ImageFont, ImageSequence
 import easyocr
 import webbrowser
-import openai
+from google.cloud import speech
+import requests
+import base64
 
 
 api_key = 'AIzaSyCOevHFAmoNY3WONd-wzIoMPfGqA3ix4t0' # it is better practice to save locally under variables, but for the checkers to see that it is working, I will leave it here
-youtube_summarizer_openai_key = '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' # it is better practice to save locally under variables, but for the checkers to see that it is working, I will leave it here
+text_to_speech_key = 'AIzaSyA3H4KnMcwvo70Xmhde7vFg1IIOvBet1JE'
 youtube = build('youtube', 'v3', developerKey=api_key)
 watermark_text = "Shachar Bloch"
 threshold_level = 60.0
 OUTPUT_FILE = "collected_text.txt"
 
-def search_and_download(subject):
+def video_search_and_download(subject):
     search_request = youtube.search().list(
     part="snippet",
     maxResults=50,
@@ -71,9 +73,84 @@ def search_and_download(subject):
     print("No suitable video found.")
     return None
 
-def get_youtube_link(video_id):
-    return f"https://www.youtube.com/watch?v={video_id}"
+def download_audio(video_id):
+    youtube_link = f"https://www.youtube.com/watch?v={video_id}"
+    yt = YouTube(youtube_link)
+    audio_filename = yt.title.replace(" ", "_") + ".mp3"
+    audio_download_path = os.path.join(os.getcwd(), audio_filename)
 
+    # Check if audio file already exists
+    if os.path.exists(audio_download_path):
+        print("Audio file already exists.")
+        return audio_download_path
+
+    audio_stream = yt.streams.filter(only_audio=True).first()
+    if audio_stream:
+        audio_stream.download(filename=audio_filename)
+        print("Audio download completed.")
+        return audio_download_path
+    else:
+        print("No audio stream found.")
+        return None
+
+    sound = AudioSegment.from_mp3(audio_download_path)
+    wav_file_path = audio_download_path.replace(".mp3", ".wav")
+    sound.export(wav_file_path, format="wav")
+    return wav_file_path
+
+
+def transcribe_mp3_to_file(text_to_speech_key, mp3_file_path):
+    url = f"https://speech.googleapis.com/v1/speech:recognize?key={text_to_speech_key}"
+    
+    with open(mp3_file_path, "rb") as audio_file:
+        audio_content = base64.b64encode(audio_file.read()).decode("utf-8")
+    
+    data = {
+        "config": {
+            "encoding": "MP3",
+            "sampleRateHertz": 16000,
+            "languageCode": "en-US"
+        },
+        "audio": {
+            "content": audio_content
+        }
+    }
+    
+    response = requests.post(url, json=data)
+    
+    if response.status_code == 200:
+        json_response = response.json()
+        results = json_response.get('results', [])
+        
+        if not results:
+            print("No speech could be recognized.")
+            return
+        
+        transcripts = []
+        for result in results:
+            alternatives = result.get('alternatives', [])
+            for alternative in alternatives:
+                if 'transcript' in alternative:
+                    transcripts.append(alternative['transcript'])
+        
+        transcript_text = "\n".join(transcripts)
+        if transcripts:
+            with open("audio_to_text.txt", "w", encoding="utf-8") as file:
+                file.write(transcript_text)
+            print("Transcription completed and saved to audio_to_text.txt.")
+            
+            file_url = 'file://' + os.path.abspath("audio_to_text.txt")
+            webbrowser.open(file_url)
+        else:
+            print("Transcript was empty.")
+    else:
+        print(f"Failed to transcribe audio: {response.status_code} - {response.text}")
+
+
+def display_transcript():
+    with open("transcript.txt", "r") as file:
+        content = file.read()
+        print(content)
 
 def image_text_decipher(image_path):
     reader = easyocr.Reader(['en'])
@@ -183,45 +260,64 @@ def print_concatenated_text_from_file(file_path):
     print("Concatenated Text:", concatenated_text)
     return concatenated_text
 
-def create_summary(youtube_link, concatenated_text):
-    prompt = f"Please summarize this content based on the following details and the linked video: {concatenated_text} Link: {youtube_link}"
-    
+def create_transcription(audio_download_path):
+    # Assuming your OpenAI API key is already set in your environment variables
+    # or you've set it elsewhere in your code
+    client = OpenAI()
+
     try:
-        response = openai.Completion.create(
-            engine="gpt-3.5-turbo-instruct",  
-            prompt=prompt,
-            temperature=0.5,
-            max_tokens=1024,  # Adjust as needed
-            top_p=1.0,
-            frequency_penalty=0.0,
-            presence_penalty=0.0
-        )
+        # Open the audio file in binary mode
+        with open(audio_download_path, "rb") as audio_file:
+            # Create transcription using the OpenAI Whisper model
+            transcript = client.audio.transcriptions.create(
+                model="whisper-1",
+                file=audio_file
+            )
         
-        summary_text = response.choices[0].text.strip()
-        
-        # Saving the summary to a file
-        summary_file = "GPT_summary.txt"
-        with open(summary_file, "w") as file:
-            file.write(summary_text)
-        
-        print("Summary created and saved to GPT_summary.txt.")
-        
-        # Open the summary file automatically in the default web browser
-        file_url = 'file://' + os.path.abspath(summary_file)
+        # Extract the transcription text
+        transcription_text = transcript['data']['text']
+
+        # Define the filename for saving the transcription
+        transcription_filename = f"{os.path.splitext(audio_download_path)[0]}_transcription.txt"
+
+        # Save the transcription to a text file
+        with open(transcription_filename, "w", encoding="utf-8") as file:
+            file.write(transcription_text)
+        print(f"Saved transcription to {transcription_filename}")
+
+        # Use the 'webbrowser' module to open the text file in the default browser
+        file_url = 'file://' + os.path.abspath(transcription_filename)
         webbrowser.open(file_url)
-    
+
     except Exception as e:
-        print(f"An error occurred while creating the summary: {e}")
+        print(f"An error occurred while creating the transcription: {e}")
+
+    
+    
 
 def main():
     subject = input("Please enter a subject for the video: ")
-    video_path, video_id = search_and_download(subject)  # Ensure this returns video path and ID
+    video_path, video_id = video_search_and_download(subject)  # Now only returns video path and ID
+    
+    # Download audio using the video ID
+    audio_path = download_audio(video_id) if video_id else None
+    
     if video_path:
         detect_and_save_scenes(video_path)
+    else:
+        print("Failed to download video for scene detection.")
     
-    concatenated_text = print_concatenated_text_from_file(OUTPUT_FILE)
-    youtube_link = get_youtube_link(video_id)  # Ensure video_id is used here
-    create_summary(youtube_link, concatenated_text)
+    # Create transcription if audio was downloaded
+    if audio_path:
+        transcribe_mp3_to_file(text_to_speech_key, audio_path)  # This replaces create_transcription
+        
+    else:
+        print("Failed to download audio for transcription.")
+
 
 if __name__ == "__main__":
+    main()
+
+
+
     main()
