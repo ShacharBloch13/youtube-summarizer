@@ -147,11 +147,6 @@ def transcribe_mp3_to_file(text_to_speech_key, mp3_file_path):
         print(f"Failed to transcribe audio: {response.status_code} - {response.text}")
 
 
-def display_transcript():
-    with open("transcript.txt", "r") as file:
-        content = file.read()
-        print(content)
-
 def image_text_decipher(image_path):
     reader = easyocr.Reader(['en'])
     result = reader.readtext(image_path)
@@ -249,55 +244,13 @@ def gif_maker(scene_list, output_filename="GIF.gif", duration=100): #
     file_url = 'file://' + os.path.abspath(output_filename)
     webbrowser.open(file_url)
 
-def print_concatenated_text_from_file(file_path):
-    if not os.path.exists(file_path):
-        print("Text file does not exist.")
-        return ""
-    
-    with open(file_path, 'r') as file:
-        concatenated_text = " ".join([line.strip() for line in file.readlines()])
-    
-    print("Concatenated Text:", concatenated_text)
-    return concatenated_text
 
-def create_transcription(audio_download_path):
-    # Assuming your OpenAI API key is already set in your environment variables
-    # or you've set it elsewhere in your code
-    client = OpenAI()
-
-    try:
-        # Open the audio file in binary mode
-        with open(audio_download_path, "rb") as audio_file:
-            # Create transcription using the OpenAI Whisper model
-            transcript = client.audio.transcriptions.create(
-                model="whisper-1",
-                file=audio_file
-            )
-        
-        # Extract the transcription text
-        transcription_text = transcript['data']['text']
-
-        # Define the filename for saving the transcription
-        transcription_filename = f"{os.path.splitext(audio_download_path)[0]}_transcription.txt"
-
-        # Save the transcription to a text file
-        with open(transcription_filename, "w", encoding="utf-8") as file:
-            file.write(transcription_text)
-        print(f"Saved transcription to {transcription_filename}")
-
-        # Use the 'webbrowser' module to open the text file in the default browser
-        file_url = 'file://' + os.path.abspath(transcription_filename)
-        webbrowser.open(file_url)
-
-    except Exception as e:
-        print(f"An error occurred while creating the transcription: {e}")
-
-    
+ 
     
 
 def main():
     subject = input("Please enter a subject for the video: ")
-    video_path, video_id = video_search_and_download(subject)  # Now only returns video path and ID
+    video_path, video_id = video_search_and_download(subject)  
     
     # Download audio using the video ID
     audio_path = download_audio(video_id) if video_id else None
@@ -309,7 +262,7 @@ def main():
     
     # Create transcription if audio was downloaded
     if audio_path:
-        transcribe_mp3_to_file(text_to_speech_key, audio_path)  # This replaces create_transcription
+        transcribe_mp3_to_file(text_to_speech_key, audio_path)  
         
     else:
         print("Failed to download audio for transcription.")
