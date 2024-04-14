@@ -1,5 +1,7 @@
 # youtube-summarizer
 
+``` https://youtu.be/g2plcf1lbgs ```
+
 The YouTube Summarizer is a Python script designed to automate the process of downloading YouTube videos, extracting audio, transcribing the audio content, and performing scene detection. This document outlines the setup, usage, and flow of the script.
 
 # Disclaimer
