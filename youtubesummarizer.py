@@ -15,7 +15,7 @@ import os
 
 
 
-api_key = os.environ.get("YOUTUBE_API")
+api_key = os.environ.get("YOUTUBE_SUMMARIZER_OPENAI_API_KEY")
 text_to_speech_key = os.environ.get("TEXT_TO_SPEECH_API")
 youtube = build('youtube', 'v3', developerKey=api_key)
 watermark_text = "Shachar Bloch"
