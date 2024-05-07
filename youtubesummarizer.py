@@ -11,10 +11,12 @@ import webbrowser
 from google.cloud import speech
 import requests
 import base64
+import os
 
 
-api_key = 'AIzaSyCOevHFAmoNY3WONd-wzIoMPfGqA3ix4t0' # it is better practice to save locally under variables, but for the checkers to see that it is working, I will leave it here
-text_to_speech_key = 'AIzaSyA3H4KnMcwvo70Xmhde7vFg1IIOvBet1JE'
+
+api_key = os.environ.get("YOUTUBE_API")
+text_to_speech_key = os.environ.get("TEXT_TO_SPEECH_API")
 youtube = build('youtube', 'v3', developerKey=api_key)
 watermark_text = "Shachar Bloch"
 threshold_level = 60.0
